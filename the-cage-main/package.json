@@ -1,0 +1,36 @@
+{
+  "name": "the-cage",
+  "version": "1.0.0",
+  "description": "Gear checkout and reservation tracking for a small film team",
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch --env-file-if-exists=.env src/server.js",
+    "test": "node --test \"test/**/*.test.js\"",
+    "seed": "node --env-file-if-exists=.env scripts/seed-demo.js",
+    "mail:test": "node --env-file-if-exists=.env scripts/mail-test.js",
+    "invite": "node --env-file-if-exists=.env scripts/invite.js",
+    "import": "node --env-file-if-exists=.env scripts/import-csv.js",
+    "import:orders": "node --env-file-if-exists=.env scripts/import-orders.js",
+    "reminders": "node --env-file-if-exists=.env scripts/run-reminders.js",
+    "build:standalone": "node scripts/build-standalone.js",
+    "demo:data": "node --env-file-if-exists=.env scripts/make-demo-data.js",
+    "demo:diff": "node scripts/diff-standalone.js",
+    "status": "bash scripts/status.sh",
+    "seed:activity": "node --env-file-if-exists=.env scripts/seed-activity.js",
+    "token": "node --env-file-if-exists=.env scripts/token.js",
+    "mcp": "node mcp/server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "express": "^4.19.2",
+    "multer": "^2.2.0",
+    "node-cron": "^4.6.0",
+    "nodemailer": "^9.0.4",
+    "pg": "^8.12.0"
+  }
+}

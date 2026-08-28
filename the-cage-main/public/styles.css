@@ -1,0 +1,964 @@
+:root{
+  --case:#1b1f24; --panel:#23282f; --panel2:#2a3038; --rule:#353c45;
+  --paper:#e8e9ea; --dim:#8a929c;
+  --gaff:#f2c230; --ready:#4fb79a; --flag:#e2564a; --held:#7f9cc4;
+  /* --gaff was doing two jobs: the brand accent *and* the "out" status fill.
+     They only have to agree in dark mode. Splitting them means light mode can
+     take a different accent without turning every out-on-set item that
+     colour, which would collide with ready-green. */
+  --accent:#f2c230;
+  /* Gear ownership tags (Cheqroom's "Flag" — FLMKR/GAT/etc). A fixed
+     categorical order, not status colours reused — these steps are picked
+     to stay distinct from --gaff/--ready/--flag/--held so an ownership dot
+     is never mistaken for an item's checkout state. Validated with
+     scripts/validate_palette.js against this panel (#23282f): adjacent CVD
+     ΔE >= 8.4, adjacent normal-vision ΔE >= 19.3. */
+  --owner-1:#3987e5; --owner-2:#d95926; --owner-3:#199e70;
+  --owner-4:#c98500; --owner-5:#d55181; --owner-6:#008300;
+  --on-accent:#1b1f24;
+  /* A blue distinct from --accent and from --held's muted blue-grey, so the
+     "more like this" bar reads as its own control rather than as a status or
+     the brand colour. Muted rather than a bright interactive blue — it's a
+     seam in the list, not a call to action. 6.37:1 with white text. */
+  --group:#44608c;
+  /* Type scale and weight, driven by the Appearance menu. Sizes are px
+     throughout — a gear list wants consistent rows, not text that reflows
+     with the browser's default — so scaling multiplies rather than reflows. */
+  --fs:1;
+  --fw:400;
+  --fw-mid:500;
+  --fw-bold:600;
+  --display:'Archivo Narrow','Arial Narrow',system-ui,sans-serif;
+  --body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --pad:16px;
+  --main-max:1180px;
+  --rail:186px;
+}
+
+/* Light mode. The palette is the whole theme: every surface, rule and status
+   colour already comes from a variable, so nothing else has to know. Status
+   hues are darkened rather than reused — the dark-mode green is unreadable on
+   white, and these have to stay legible as a 3px bar segment. */
+[data-theme="light"]{
+  --case:#f2f4f6; --panel:#ffffff; --panel2:#e9edf1; --rule:#d3d9df;
+  --paper:#1a1e23; --dim:#5f6772;
+  /* Amber stays amber for "out" — it has to read as a warning next to
+     ready-green, and it's a fill with dark text on it. */
+  --gaff:#c98a04; --ready:#1f7d63; --flag:#c0392b; --held:#3f6591;
+  /* Teal for everything interactive. White on this is 5.3:1. */
+  --accent:#0f766e;
+  --on-accent:#ffffff;
+  /* Same six ownership steps, re-stepped for the white panel (#ffffff).
+     Adjacent CVD ΔE >= 9.1, adjacent normal-vision ΔE >= 19.6. Three of the
+     six sit below 3:1 text contrast on white by design (magenta/yellow/aqua
+     always read light) — that's why .flag-dot only ever carries a swatch,
+     never text; the label stays in --dim. */
+  --owner-1:#2a78d6; --owner-2:#eb6834; --owner-3:#1baf7a;
+  --owner-4:#eda100; --owner-5:#e87ba4; --owner-6:#008300;
+  /* Darker than dark mode's --group — .group-bar keeps white text on it in
+     both themes, so this has to stay dark enough on a white panel. */
+  --group:#2c4b78;
+}
+[data-theme="light"] .tick.repair,
+[data-theme="light"] .seg.repair{background:#8d959e}
+/* These tints were mixed for a dark background; on white they need to be
+   stronger to read as a tint at all. */
+[data-theme="light"] .alert{background:rgba(192,57,43,.10)}
+[data-theme="light"] .alert.warn{background:rgba(201,138,4,.14)}
+[data-theme="light"] .alert.ok{background:rgba(31,125,99,.12)}
+[data-theme="light"] .no-auth{color:#fff}
+
+/* The timeline was drawn for a dark background and carries hard-coded greys
+   and white overlays. On white those go from "subtle shading" to either
+   invisible or a black box with black text in it. */
+[data-theme="light"] .tl-header .tl-cell.weekend{background:#dde3e9}
+[data-theme="light"] .tl-cell.weekend{background:rgba(0,0,0,.04)}
+[data-theme="light"] .tl-cell[data-act]:hover{background:rgba(0,0,0,.07)}
+[data-theme="light"] .tl-row.clash{background:rgba(192,57,43,.08)}
+[data-theme="light"] .tl-row.clash .tl-name{background:#f7e2df}
+[data-theme="light"] .tl-bar.done{background:#aeb6bf;color:#14181d}
+[data-theme="light"] .tl-swatch.done{background:#aeb6bf}
+/* The status hues are darkened for light mode, so bar labels flip to white —
+   #1b1f24 on the light-mode gold or blue is barely a contrast at all. */
+[data-theme="light"] .tl-bar.res{color:#fff}
+[data-theme="light"] .tl-cat{background:var(--panel2)}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--case);color:var(--paper);
+  font-family:var(--body);font-size:calc(15px * var(--fs));line-height:1.45;font-weight:var(--fw);
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+[hidden]{display:none!important}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+.lbl{font-family:var(--display);text-transform:uppercase;letter-spacing:.14em;font-weight:var(--fw-bold);font-size:calc(11px * var(--fs));color:var(--dim)}
+.mono{font-family:var(--mono);font-size:calc(12.5px * var(--fs))}
+h1,h2,h3{margin:0;font-family:var(--display);font-weight:700;letter-spacing:.02em}
+h2{font-size:calc(20px * var(--fs))}
+a{color:var(--accent)}
+
+/* ============================ layout ============================ */
+.app{display:none}
+.app.ready{display:block}
+
+header{
+  position:sticky;top:0;z-index:20;background:var(--case);
+  border-bottom:1px solid var(--rule);
+  padding:13px var(--pad) 11px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+}
+.brand{display:flex;align-items:baseline;gap:10px;min-width:0}
+.appearance-btn{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;padding:0;cursor:pointer;
+  background:var(--panel2);border:1px solid var(--rule);border-radius:4px;color:var(--paper);
+}
+.appearance-btn svg{width:17px;height:17px;display:block;fill:currentColor}
+.appearance-btn:hover{border-color:var(--accent);color:var(--accent)}
+.appearance-row{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:10px 0;border-bottom:1px solid var(--rule)}
+.appearance-row:last-of-type{border-bottom:0}
+.brand h1{font-size:21px;text-transform:uppercase;letter-spacing:.16em;white-space:nowrap}
+.brand .tag{font-family:var(--mono);font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.who{display:flex;align-items:center;gap:8px;flex:none}
+/* Empty it sits quiet, like the appearance button beside it; with something
+   in it, it takes the accent. */
+.cart-btn{
+  display:flex;align-items:center;gap:6px;flex:none;cursor:pointer;
+  background:var(--panel2);color:var(--dim);border:1px solid var(--rule);border-radius:4px;
+  /* Padding shrinks as the glyph grows, so the button keeps the same 30px
+     height as the appearance button beside it — the icon gets the space,
+     not the box around it. */
+  padding:2px 9px 2px 7px;
+}
+.cart-btn svg{width:24px;height:24px;display:block}
+.cart-btn:hover{color:var(--paper);border-color:var(--dim)}
+.cart-btn.has-items{
+  background:var(--accent);color:var(--on-accent);border-color:var(--accent);
+}
+.cart-btn.has-items:hover{filter:brightness(1.08);border-color:var(--accent)}
+.cart-n{font-family:var(--mono);font-size:calc(11px * var(--fs));font-weight:600;
+  background:rgba(0,0,0,.22);border-radius:999px;padding:1px 7px;letter-spacing:0}
+/* Shown when there's no sign-in, so an open instance never looks like a
+   logged-in session. */
+.no-auth{
+  font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--on-accent);background:var(--accent);border-radius:999px;padding:3px 9px;white-space:nowrap;
+}
+.who .n{font-family:var(--mono);font-size:11.5px;color:var(--dim);display:none}
+
+/* Content width scales with the screen, but not without limit — past a point
+   a wider row is just a longer eye-travel. Extra space goes into density
+   (more days on the timeline, two columns of gear) rather than longer lines. */
+/* width:100% matters: `margin:0 auto` on a grid item overrides the default
+   stretch, so without it main shrink-wraps its content and a wide screen
+   leaves the whole right-hand side empty. */
+main{padding:var(--pad);padding-bottom:86px;width:100%;max-width:var(--main-max);margin:0 auto}
+
+nav{
+  /* Four destinations plus More, not all eight — a bottom bar with every tab
+     on it either ellipsises each label at an eighth of the screen, or, split
+     into two rows, doubles its own height and still reads as cluttered.
+     Repairs/Packages/Kits/Admin move into the More sheet instead (see
+     .nav-more-item below and sheet_moreNav in app.js); five items in one row
+     gets each roughly the same share "By checkout" and friends get on the
+     Calendar tab's own chip rows. */
+  position:fixed;bottom:0;left:0;right:0;z-index:30;display:flex;
+  background:var(--panel);border-top:1px solid var(--rule);
+  padding-bottom:env(safe-area-inset-bottom);
+}
+nav button{
+  /* min-width:0 or the ellipsis never engages: a flex item won't shrink below
+     its own content, so a word as long as "Reservations" would still add up
+     to more than a phone is wide and the whole row would scroll sideways. */
+  flex:1;min-width:0;
+  background:none;border:0;border-top:2px solid transparent;color:var(--dim);
+  padding:11px 1px 12px;cursor:pointer;
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:9.5px;font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+@media (max-width:400px){nav button{font-size:8.5px;letter-spacing:.02em}}
+nav button[aria-current="true"]{color:var(--accent);border-top-color:var(--accent)}
+nav .badge{display:block;font-family:var(--mono);font-size:9px;color:var(--flag);letter-spacing:0}
+/* Hidden on a phone — reachable through More instead — and shown again once
+   the sidebar has the vertical room for all eight without crowding. */
+.nav-more-item{display:none}
+
+/* desktop: nav becomes a rail, content gets two columns */
+@media (min-width:900px){
+  :root{--pad:24px}
+  /* The rail lives inside .app, not on body — header/nav/main are its children. */
+  /* minmax(0,1fr), not 1fr: a grid track's default minimum is min-content, so
+     one long unbreakable thing — a 60-character gear name, a <select> holding
+     everyone's full name — widens the whole column past the viewport and the
+     page scrolls sideways. Real inventory has plenty of both. */
+  .app.ready{display:grid;grid-template-columns:var(--rail) minmax(0, 1fr)}
+  header{grid-column:1/-1;position:sticky}
+  nav{
+    flex-direction:column;
+    position:sticky;top:0;height:calc(100vh - 58px);
+    border-top:0;border-right:1px solid var(--rule);
+    padding:14px 0;align-self:start;
+  }
+  nav button{
+    flex:none;text-align:left;padding:12px 20px;font-size:11.5px;letter-spacing:.11em;
+    border-top:0;border-left:2px solid transparent;
+  }
+  nav button[aria-current="true"]{border-top:0;border-left-color:var(--accent);background:var(--panel2)}
+  nav .badge{display:inline;margin-left:6px}
+  /* The sidebar has room for all eight — show the ones More hides on a
+     phone, and hide More itself, which the sidebar has no use for. */
+  .nav-more-item{display:block}
+  #nav-more{display:none}
+  main{padding-bottom:40px}
+  .who .n{display:inline}
+  .cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+}
+@media (min-width:1240px){
+  .cols-3{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:20px;align-items:start}
+}
+
+/* ============ wide desktops ============ */
+/* Each step gives content more room, and each tab takes as much of it as it
+   can actually use — see the per-tab caps below. */
+@media (min-width:1500px){
+  :root{--main-max:1360px;--pad:28px}
+  /* Two very wide search boxes look broken; the timeline under them doesn't. */
+  .cal-searches{max-width:940px}
+}
+@media (min-width:1800px){
+  :root{--main-max:1560px;--rail:212px}
+  nav button{padding:13px 24px;font-size:12px}
+}
+@media (min-width:2300px){
+  :root{--main-max:1760px;--pad:32px}
+}
+
+/* The timeline is the one view that wants every pixel it can get: more width
+   is literally more days visible without scrolling sideways. */
+main[data-tab="calendar"]{max-width:none}
+/* ...but a fortnight of days doesn't fill a 4K screen, and the board was
+   pinned to the left with a third of the row empty beside it. Auto margins
+   centre it when it fits and collapse to zero when it doesn't, so a board
+   wider than the screen still scrolls from its left edge. */
+main[data-tab="calendar"] .tl{margin-inline:auto}
+
+/* ======================= cage strip, by category =======================
+   One bar per category. Every segment is a filter, so the strip is a control
+   surface rather than decoration. */
+/* Columns as early as the width allows: eight categories in one column is a
+   scroll, in three it's a glance — and it has to stay shorter than the wall of
+   459 rectangles it replaced. */
+/* Two columns even on a phone: one column put eight categories over 483px,
+   which is a whole screen before you reach the gear. A long name ("Camera
+   Stabilization") wraps to a second line rather than ellipsising — the
+   tooltip a desktop hover would show to recover an ellipsised name never
+   fires on a touchscreen, so on the phone this layout is actually for,
+   ellipsis meant an unreadable label with no way to see the rest of it. */
+.cage-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin:8px 0 6px}
+/* minmax(0,…) and min-width:0 together: .cage-sum is nowrap, so its min-content
+   is the whole sentence, and without both the track widens to fit it. */
+.cage-row{min-width:0}
+@media (min-width:620px){.cage-grid{gap:10px 20px}}
+@media (min-width:1040px){.cage-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (min-width:1700px){.cage-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* flex-start, not baseline: a wrapped two-line category name and a one-line
+   count shouldn't align on the name's second-line baseline, which reads as
+   the count floating below where it belongs. */
+.cage-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px}
+.cage-cat{
+  background:none;border:0;padding:0;cursor:pointer;color:var(--paper);
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.09em;font-size:11.5px;font-weight:600;
+  white-space:normal;min-width:0;line-height:1.25;
+}
+.cage-cat:hover{color:var(--accent)}
+.cage-n{font-family:var(--mono);font-size:12px;flex:none}
+.cage-n .of{color:var(--dim)}
+
+.cage-bar{display:flex;height:12px;border-radius:2px;overflow:hidden;background:var(--rule)}
+.seg{width:var(--w);border:0;padding:0;cursor:pointer;min-width:3px;transition:filter .12s}
+.seg:hover{filter:brightness(1.35)}
+.seg.ready{background:var(--ready)}
+.seg.out{background:var(--gaff)}
+.seg.overdue{background:var(--flag)}
+.seg.held{background:var(--held)}
+.seg.repair{background:#5d6570;box-shadow:inset 0 0 0 1px var(--flag)}
+
+.cage-sum{font-family:var(--mono);font-size:10.5px;color:var(--dim);margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.legend{display:flex;flex-wrap:wrap;gap:13px}
+.legend span{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.dot,.tally{width:9px;height:9px;border-radius:50%;flex:none}
+.tally{width:10px;height:10px}
+.dot.ready,.tally.ready{background:var(--ready)}
+.dot.out,.tally.out{background:var(--gaff)}
+.dot.overdue,.tally.overdue{background:var(--flag)}
+.dot.held,.tally.held{background:var(--held)}
+.dot.repair,.tally.repair{background:#5d6570;box-shadow:inset 0 0 0 1px var(--flag)}
+.tally.out{box-shadow:0 0 7px rgba(242,194,48,.7)}
+.tally.overdue{box-shadow:0 0 7px rgba(226,86,74,.75)}
+
+/* ============================ panels & rows ============================ */
+.panel{background:var(--panel);border:1px solid var(--rule);border-radius:3px;margin-bottom:14px}
+.panel-h{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:11px 13px;border-bottom:1px solid var(--rule)}
+.panel-b{padding:13px}
+.panel-b.flush{padding:0}
+
+.row{display:flex;gap:11px;align-items:center;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);padding:11px 13px;cursor:pointer;color:inherit}
+.row:last-child{border-bottom:0}
+.row:hover{background:var(--panel2)}
+.row.static{cursor:default}
+.row.static:hover{background:none}
+.row-main{flex:1;min-width:0}
+/* The quick-add lives beside the row rather than inside it — a row is itself
+   a button, and buttons don't nest. */
+.row-wrap{display:flex;align-items:stretch;border-bottom:1px solid var(--rule)}
+.row-wrap > .row{border-bottom:0;flex:1;min-width:0}
+.row-add{
+  flex:none;width:46px;border:0;border-left:1px solid var(--rule);background:none;
+  color:var(--dim);cursor:pointer;font-size:calc(17px * var(--fs));line-height:1;
+}
+.row-add:hover{background:var(--panel2);color:var(--accent)}
+.row-add.in{color:var(--ready)}
+/* Mirrors .row-add on the other side — same reason: a row is a button, so the
+   pick checkbox can't live inside it either. Gear tab only; nothing else
+   multi-selects rows yet. */
+main[data-tab="gear"] .row-check{
+  flex:none;width:40px;display:grid;place-items:center;border-right:1px solid var(--rule);
+}
+/* Same treatment as .check/.switch elsewhere — accent-color themes the native
+   checkbox to the app's palette instead of the browser's default light chrome,
+   which otherwise stays a stark white box regardless of dark mode. */
+main[data-tab="gear"] .row-check input{width:18px;height:18px;min-height:0;margin:0;accent-color:var(--accent)}
+/* Seam between "showing 1 unit" and "showing all N" for grouped gear — an
+   accent bar rather than another row, so it reads as the control that
+   folds/unrolls the group, not as one more thing in the list. */
+.group-bar{display:block;width:100%;border:0;cursor:pointer;
+  font-family:var(--mono);font-size:10px;font-weight:var(--fw-mid);letter-spacing:.02em;
+  color:#fff;background:var(--group);padding:5px 0}
+.group-bar:hover{filter:brightness(1.08)}
+/* A non-interactive row inside the review list — it's a summary, not a target. */
+.row.static{cursor:default}
+.row-name{display:block;font-weight:var(--fw-mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{display:block;font-family:var(--mono);font-size:calc(11.5px * var(--fs));color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row.dim{opacity:.5}
+
+/* ============================ controls ============================ */
+.btn{
+  background:var(--panel2);border:1px solid var(--rule);color:var(--paper);
+  padding:10px 14px;border-radius:3px;cursor:pointer;
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;font-size:calc(11.5px * var(--fs));font-weight:var(--fw-bold);
+  min-height:42px;
+}
+.btn:hover:not(:disabled){border-color:var(--dim)}
+.btn.primary{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.btn.danger{color:var(--flag)}
+.btn.small{padding:6px 10px;min-height:0;font-size:10.5px}
+.btn.wide{width:100%;text-align:center}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+input,select,textarea{
+  width:100%;background:var(--case);border:1px solid var(--rule);
+  border-radius:3px;padding:11px;margin-top:5px;min-height:44px;
+}
+textarea{min-height:66px;resize:vertical}
+.field{margin-bottom:12px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+@media (max-width:420px){.two{grid-template-columns:1fr}}
+
+.chips{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+/* JS (paintChipScrollHints) adds .has-more only while there's actually
+   something past the right edge to scroll to — a plain "always fade the
+   edge" would dim the last chip on a row that already fits. */
+.chips.has-more{
+  -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image:linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+}
+.chip{background:none;border:1px solid var(--rule);color:var(--dim);padding:7px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:var(--mono);font-size:11.5px}
+.chip[aria-pressed="true"]{background:var(--paper);color:var(--case);border-color:var(--paper)}
+
+/* The status dot is the last thing in the row, so with no right padding it
+   sits hard against the edge — and against the scrollbar when the list
+   scrolls. A few pixels stop it reading as part of the border. */
+.check{display:flex;align-items:center;gap:10px;padding:10px 7px 10px 1px;border-bottom:1px solid var(--rule)}
+.check input{width:20px;height:20px;min-height:0;margin:0;flex:none;accent-color:var(--accent)}
+.check .n{flex:1;min-width:0;font-size:calc(14px * var(--fs))}
+.check.blocked{opacity:.55}
+
+/* ===================== gear icons — photo placeholders ===================== */
+/* Line art on currentColor, so each icon picks up its row's status colour. */
+.gear-i{
+  flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:3px;
+  background:var(--panel2);border:1px solid var(--rule);color:var(--dim);
+  overflow:hidden;
+}
+.gear-i svg{width:20px;height:20px;display:block}
+/* The real photo, when there is one — fills the same box the icon would,
+   cropped rather than letterboxed so a landscape catalogue shot doesn't
+   leave bars of panel colour down the sides. */
+.gear-i img{width:100%;height:100%;object-fit:cover;display:block}
+.gear-i.ready{color:var(--ready)}
+.gear-i.out{color:var(--gaff)}
+.gear-i.overdue{color:var(--flag)}
+.gear-i.held{color:var(--held)}
+.gear-i.repair{color:#8b939d}
+.check .gear-i{width:30px;height:30px}
+.check .gear-i svg{width:17px;height:17px}
+.gear-i.large{width:64px;height:64px;border-radius:6px}
+.gear-i.large svg{width:32px;height:32px}
+.kit-i.large{width:64px;height:64px;border-radius:6px}
+.kit-i.large svg{width:32px;height:32px}
+
+/* A kit or package's own photo, at panel-header size — same idea as .gear-i,
+   just bigger, and there's no per-item icon underneath since a case doesn't
+   have a category to pick one from. */
+.kit-i{
+  flex:none;display:grid;place-items:center;width:44px;height:44px;border-radius:5px;
+  background:var(--panel2);border:1px solid var(--rule);color:var(--dim);overflow:hidden;
+}
+.kit-i svg{width:24px;height:24px;display:block}
+.kit-i img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* A person's photo — round rather than square, so it never gets mistaken for
+   a piece of gear in a row that mixes both (a kit's edit history, a booking
+   row). No photo falls back to initials on the same muted panel background
+   gear icons use, rather than a blank circle that reads as a loading state
+   that never finishes. */
+.avatar{
+  flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;
+  background:var(--panel2);border:1px solid var(--rule);color:var(--dim);overflow:hidden;
+  font-family:var(--display);font-weight:var(--fw-bold);font-size:12px;letter-spacing:.02em;
+}
+.avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.avatar.large{width:56px;height:56px;font-size:18px}
+
+/* The upload control on an edit form: preview on the left, file input and
+   hint stacked beside it, Remove (when there's something to remove) below
+   both — same field/hint rhythm every other form control on these sheets
+   already uses. */
+.photo-pick{display:flex;gap:12px;align-items:center}
+.photo-pick input[type="file"]{width:100%}
+
+/* ===================== check-out hub ===================== */
+.act-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.act{
+  display:flex;flex-direction:column;align-items:flex-start;gap:2px;
+  background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+  padding:15px 14px;cursor:pointer;color:inherit;text-align:left;
+}
+.act:hover{border-color:var(--dim)}
+.act .act-i{display:block;color:var(--dim);margin-bottom:6px}
+.act .act-i svg{width:24px;height:24px;display:block}
+.act .act-t{font-family:var(--display);text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-size:13px}
+.act .act-d{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.act.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.act.primary .act-i,.act.primary .act-d{color:rgba(27,31,36,.72)}
+
+/* Scanning is a phone-camera feature — past the same 900px breakpoint where
+   the nav itself becomes a desktop rail, a camera viewfinder and "Use
+   camera" button are just a panel nobody at a laptop will ever press. */
+@media (min-width:900px){.scan-panel{display:none}}
+
+/* An alert that is also a button. */
+.alert.as-row{width:100%;text-align:left;cursor:pointer;font:inherit;font-size:14px}
+/* The alert's contents are one flex child, and a flex item's default minimum
+   is its content — so .row-name's ellipsis had nothing to ellipsise against
+   and a loan naming fourteen items stretched the page sideways. */
+.alert.as-row > span{flex:1;min-width:0}
+.alert.as-row:hover{filter:brightness(1.25)}
+.alert-stack{margin-bottom:14px}
+
+/* Status chips on the Gear tab carry their own colour dot and count. */
+.chip.stat{display:inline-flex;align-items:center;gap:6px}
+.chip.stat .n{font-size:10.5px;opacity:.75}
+.chip.stat[aria-pressed="true"] .dot{box-shadow:0 0 0 1px rgba(27,31,36,.35)}
+
+/* Ownership tag on a gear row — Cheqroom's "Flag" (FLMKR/GAT). The dot carries
+   colour so a repeat owner is a quick visual scan; the text stays in --dim
+   (never the series colour) so it's readable regardless of which of the six
+   steps landed below 3:1 on this theme's panel. Only the first six distinct
+   flag values in the cage get a dot — a 7th+ just shows as plain text rather
+   than reusing a colour or guessing one. */
+.flag-tag{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;color:var(--dim);
+  border:1px solid var(--rule);border-radius:999px;padding:1px 7px 1px 6px;margin-left:6px;vertical-align:1px}
+.flag-dot{display:inline-block;width:7px;height:7px;border-radius:50%;flex:none;margin-right:5px}
+.flag-dot[data-flag-i="1"]{background:var(--owner-1)}
+.flag-dot[data-flag-i="2"]{background:var(--owner-2)}
+.flag-dot[data-flag-i="3"]{background:var(--owner-3)}
+.flag-dot[data-flag-i="4"]{background:var(--owner-4)}
+.flag-dot[data-flag-i="5"]{background:var(--owner-5)}
+.flag-dot[data-flag-i="6"]{background:var(--owner-6)}
+
+/* The gear picker's availability filter, inside the sheets. */
+.pick-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
+.chips.tight{gap:5px;padding-bottom:0;flex:none}
+.chips.tight .chip{padding:5px 10px;font-size:10.5px}
+.pick-meta{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:4px}
+.pick-list{max-height:30vh;overflow-y:auto;overflow-x:hidden;margin-bottom:12px;padding-right:3px}
+.pick-q{margin-bottom:6px}
+.res-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+/* Form controls are full-width by default here; in the filter bar it needs to
+   sit beside the others rather than claim the whole row. */
+.res-bar select{flex:0 1 260px;width:auto;min-width:0}
+.res-bar .chips.tight{margin:0}
+.res-dates{border:1px solid var(--rule);border-radius:5px;padding:12px;margin-bottom:10px;background:var(--panel)}
+.res-dates .two{margin-bottom:4px}
+.picker-count{font-family:var(--mono);text-transform:none;letter-spacing:0;color:var(--dim);margin-left:6px}
+
+/* Ticked but unavailable — the thing that's actually blocking the checkout. */
+.check.conflict{opacity:1;border-bottom-color:var(--flag)}
+.check.conflict .n{color:var(--flag)}
+.check.conflict .row-sub{color:var(--flag);opacity:.85}
+
+.swap{border:1px solid var(--flag);border-radius:5px;padding:10px 12px;margin-bottom:8px;background:var(--case)}
+.swap-h{margin-bottom:8px}
+/* Spares stack rather than sit side by side: a real gear name is long, and
+   the point is to recognise the thing, not to fit three chips on a line. */
+.swap-opts{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+/* .btn is uppercase display type with wide tracking — fine for SWAP, unreadable
+   for "Avenger Turtle Base C-Stand Grip Arm Kit-2". So the name opts out. */
+.swap-opt{display:flex;align-items:center;gap:9px;width:100%;text-align:left}
+.swap-opt-n{
+  flex:1;min-width:0;font-family:var(--body);font-size:13px;font-weight:400;
+  text-transform:none;letter-spacing:0;line-height:1.3;
+}
+.swap-opt-a{flex:none;color:var(--dim)}
+.swap-opt:hover .swap-opt-a{color:var(--accent)}
+/* .row-sub is one ellipsised line; this explanation needs to wrap. */
+.req{border:1px solid var(--rule);border-radius:5px;padding:11px 12px;margin-bottom:8px;background:var(--case)}
+.req:last-child{margin-bottom:0}
+.req.sent{border-style:dashed}
+.req-h{margin-bottom:8px}
+.swap-none{font-size:12.5px;color:var(--dim);margin-bottom:8px}
+
+/* Kits: ownership tags, and the "start from a kit" row in the sheets. */
+.kit-tag{display:inline-block;margin-left:7px;padding:2px 6px;border-radius:3px;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;
+  background:var(--case);color:var(--dim);vertical-align:2px}
+.kit-tag.shared{color:var(--accent)}
+.kit-sec{display:flex;width:100%;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 14px;margin-bottom:10px;border:1px solid var(--rule);border-radius:5px;
+  background:var(--panel);color:var(--paper);cursor:pointer;text-align:left}
+.kit-sec:hover{background:var(--panel2)}
+.kit-sec.open{margin-bottom:10px;border-color:var(--dim)}
+.kit-sec-t{font-family:var(--display);font-size:15px;letter-spacing:.02em;text-transform:uppercase}
+.kit-sec-t .kit-tag{vertical-align:1px}
+.kit-sec-c{font-family:var(--mono);font-size:15px;color:var(--dim);line-height:1}
+.kit-sec-b{margin-bottom:16px}
+/* Secondary kit actions sit under the two that matter, quieter. */
+.kit-acts{padding-top:0;gap:6px}
+.kit-acts .btn{color:var(--dim)}
+.kit-acts .btn:hover{color:var(--paper)}
+.kit-add-row{display:flex;gap:8px;align-items:center}
+.kit-add-row select{flex:1;min-width:0}
+
+.switch{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.switch:last-child{border-bottom:0}
+.switch input{width:22px;height:22px;min-height:0;margin:0;flex:none;accent-color:var(--accent)}
+.switch .t{flex:1}
+.switch .d{font-size:12.5px;color:var(--dim);line-height:1.35}
+
+/* ============================ alerts ============================ */
+.alert{display:flex;gap:10px;padding:11px 13px;border-left:3px solid var(--flag);background:rgba(226,86,74,.09);border-radius:2px;margin-bottom:10px;font-size:calc(14px * var(--fs))}
+.alert.warn{border-left-color:var(--gaff);background:rgba(242,194,48,.09)}
+.alert.ok{border-left-color:var(--ready);background:rgba(79,183,154,.09)}
+.alert .lbl{color:var(--paper)}
+.alert:last-child{margin-bottom:0}
+
+/* ============================ sheet ============================ */
+.scrim{position:fixed;inset:0;background:rgba(12,14,17,.74);z-index:40;display:none}
+.scrim.open{display:block}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:41;
+  max-height:90vh;overflow-y:auto;background:var(--panel);
+  border-top:2px solid var(--accent);border-radius:10px 10px 0 0;
+  padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom));display:none;
+}
+.sheet.open{display:block}
+.sheet-h{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}
+/* Roomy on a desktop: 620px was a phone sheet transplanted onto a monitor,
+   and a gear picker inside it had about eight rows of usable height. Width
+   tracks the window so it stays responsive; the vh caps keep it on screen. */
+@media (min-width:720px){
+  .sheet{
+    left:50%;transform:translateX(-50%);
+    width:min(820px, 92vw);
+    top:5vh;bottom:auto;max-height:90vh;
+    padding:22px;
+    border-radius:4px;border:1px solid var(--accent);
+  }
+}
+@media (min-width:1200px){
+  .sheet{width:min(940px, 86vw)}
+  /* The lists inside were the real constraint — more sheet is only useful if
+     the scrolling parts grow with it. */
+  .pick-list{max-height:38vh}
+  #add-list{max-height:34vh!important}
+}
+@media (min-width:1600px){
+  .sheet{width:min(1040px, 78vw)}
+}
+
+/* ============================ misc ============================ */
+.empty{padding:26px 16px;text-align:center;color:var(--dim);font-size:calc(14px * var(--fs))}
+.kv{display:flex;justify-content:space-between;gap:14px;padding:8px 0;border-bottom:1px solid var(--rule)}
+.kv:last-child{border-bottom:0}
+.kv dt{color:var(--dim);font-family:var(--mono);font-size:11.5px;text-transform:uppercase;letter-spacing:.06em}
+.kv dd{margin:0;text-align:right;font-family:var(--mono);font-size:12.5px}
+
+#toast{
+  position:fixed;left:50%;transform:translateX(-50%);bottom:96px;z-index:60;
+  background:var(--paper);color:var(--case);padding:11px 17px;border-radius:3px;
+  font-size:13.5px;font-weight:500;max-width:min(92vw,420px);
+  opacity:0;pointer-events:none;transition:opacity .2s;
+}
+#toast.show{opacity:1}
+#toast.bad{background:var(--flag);color:#fff}
+@media (min-width:900px){#toast{bottom:28px}}
+
+#cam{width:100%;border-radius:3px;background:#000;display:block;aspect-ratio:4/3;object-fit:cover}
+.scan-hint{position:relative}
+.scan-frame{position:absolute;inset:18% 14%;border:2px solid rgba(242,194,48,.85);border-radius:6px;pointer-events:none}
+
+.labels{display:grid;grid-template-columns:repeat(auto-fill,minmax(124px,1fr));gap:10px}
+.label-card{background:#fff;color:#000;border-radius:2px;padding:9px;text-align:center}
+.label-card canvas,.label-card img{width:100%!important;height:auto!important;image-rendering:pixelated}
+.label-card .n{font-size:9.5px;font-weight:700;margin-top:5px;line-height:1.2;text-transform:uppercase}
+.label-card .c{font-family:var(--mono);font-size:9px}
+
+/* ============================ sign in ============================ */
+.gate{min-height:100vh;display:grid;place-items:center;padding:24px}
+.gate-card{width:100%;max-width:380px;text-align:center}
+.gate-card h1{font-size:26px;text-transform:uppercase;letter-spacing:.2em;color:var(--accent)}
+.gate-card p{color:var(--dim);font-size:14px;margin:10px 0 22px}
+
+@media print{
+  body{background:#fff;color:#000;display:block}
+  header,nav,.scrim,.no-print,#toast{display:none!important}
+  .sheet{position:static;max-height:none;border:0;background:#fff;display:block!important;padding:0;width:auto;transform:none}
+  .labels{grid-template-columns:repeat(4,1fr)}
+}
+
+/* ============================ timeline / calendar ============================ */
+.tl{
+  --cell:38px;
+  overflow-x:auto;overflow-y:visible;
+  border:1px solid var(--rule);border-radius:3px;background:var(--panel);
+  -webkit-overflow-scrolling:touch;
+  /* Hug the grid rather than the container: on a wide screen a short span
+     would otherwise leave the row borders stopping halfway across an
+     empty panel. Still scrolls when the grid is wider than the space. */
+  width:max-content;max-width:100%;
+}
+.tl-row{display:flex;align-items:stretch;border-bottom:1px solid var(--rule);min-height:32px}
+.tl-row:last-child{border-bottom:0}
+.tl-row.clash{background:rgba(226,86,74,.07)}
+
+.tl-name{
+  flex:none;width:124px;position:sticky;left:0;z-index:3;
+  background:var(--panel);border-right:1px solid var(--rule);
+  padding:5px 8px;display:flex;flex-direction:column;justify-content:center;overflow:hidden;
+  text-align:left;color:inherit;font:inherit;
+}
+button.tl-name{cursor:pointer}
+button.tl-name:hover{background:var(--panel2)}
+.tl-row.clash .tl-name{background:#2b2427}
+.tl-name-t{font-size:12.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-name-c{font-family:var(--mono);font-size:10px;color:var(--dim)}
+
+.tl-track{
+  flex:none;position:relative;display:flex;
+  width:calc(var(--days) * var(--cell));
+  min-height:calc(var(--lanes,1) * 24px + 8px);
+}
+.tl-cell{
+  width:var(--cell);flex:none;border-right:1px solid var(--rule);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;
+}
+.tl-cell:last-child{border-right:0}
+.tl-cell.weekend{background:rgba(255,255,255,.028)}
+.tl-cell.today{box-shadow:inset 2px 0 0 var(--accent)}
+.tl-cell.sel{background:rgba(242,194,48,.16);box-shadow:inset 0 0 0 1px rgba(242,194,48,.4)}
+/* Days matched by the "jump to a day" box. Cool, so it never reads as a
+   booking — the bars own the warm colours. */
+.tl-cell.hi{background:rgba(127,156,196,.2);box-shadow:inset 0 0 0 1px rgba(127,156,196,.45)}
+.tl-header .tl-cell.hi{background:rgba(127,156,196,.3)}
+.tl-cell[data-act]{cursor:pointer}
+.tl-cell[data-act]:hover{background:rgba(255,255,255,.07)}
+
+.tl-header{position:sticky;top:0;z-index:4;background:var(--panel2);border-bottom:1px solid var(--rule)}
+.tl-header .tl-track{min-height:40px}
+.tl-header .tl-cell{background:var(--panel2);padding:4px 0}
+.tl-header .tl-cell.weekend{background:#262c34}
+.tl-corner{background:var(--panel2)!important;z-index:5}
+.tl-dow{font-family:var(--display);font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);line-height:1.1}
+.tl-dom{font-family:var(--mono);font-size:11.5px;line-height:1.2}
+.tl-mon{font-family:var(--display);font-size:8.5px;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);line-height:1}
+
+.tl-cat{padding:7px 10px;background:var(--case);border-bottom:1px solid var(--rule);position:sticky;left:0}
+
+.tl-bar{
+  position:absolute;z-index:2;border:0;cursor:pointer;text-align:left;
+  left:calc(var(--s) * var(--cell) + 2px);
+  width:calc(var(--n) * var(--cell) - 4px);
+  top:calc(var(--lane) * 24px + 4px);
+  height:20px;border-radius:3px;padding:0 6px;overflow:hidden;
+  font-family:var(--body);font-size:11px;font-weight:500;line-height:20px;color:#1b1f24;
+}
+.tl-bar:hover{filter:brightness(1.12)}
+.tl-bar.out{background:var(--gaff)}
+.tl-bar.late{background:var(--flag);color:#fff}
+.tl-bar.res{background:var(--held);color:#12171d}
+.tl-bar.done{background:#4a525c;color:var(--paper)}
+.tl-bar.clip-l{border-top-left-radius:0;border-bottom-left-radius:0;left:calc(var(--s) * var(--cell))}
+.tl-bar.clip-r{border-top-right-radius:0;border-bottom-right-radius:0}
+.tl-bar-t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+
+.tl-bar-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}
+.tl-range{font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+
+/* ===================== the load strip ===================== */
+/* Green = plenty free, red = it's going to be tight. Deliberately distinct
+   from the bar colours: bars say who has what, this says how much is left.
+   Reading is by fill, so the number stays legible on every band. */
+.tl-heat{border-bottom:2px solid var(--rule);background:var(--case)}
+.tl-heat-name{background:var(--case)}
+.tl-cell.heat{
+  min-height:26px;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:10.5px;font-weight:500;
+  color:rgba(12,16,20,.82);
+}
+.tl-cell.heat.free     {background:#2f9e6f}
+.tl-cell.heat.easy     {background:#6fbf4f}
+.tl-cell.heat.moderate {background:#d9c534}
+.tl-cell.heat.busy     {background:#e08a2e}
+.tl-cell.heat.tight    {background:#d9483f;color:rgba(255,255,255,.95)}
+.tl-cell.heat .heat-n{pointer-events:none}
+/* Today stays findable through the fill. */
+.tl-heat .tl-cell.today{box-shadow:inset 2px 0 0 rgba(12,16,20,.55)}
+
+.heat-key{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}
+.heat-scale{display:inline-flex;gap:2px}
+.heat-sw{width:20px;height:10px;border-radius:2px;display:block}
+.heat-sw.free{background:#2f9e6f} .heat-sw.easy{background:#6fbf4f}
+.heat-sw.moderate{background:#d9c534} .heat-sw.busy{background:#e08a2e}
+.heat-sw.tight{background:#d9483f}
+
+/* The two Calendar searches: gear on the left, days on the right. */
+.cal-searches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (max-width:720px){.cal-searches{grid-template-columns:1fr}}
+.cal-find{display:flex;gap:8px;align-items:center}
+.cal-find input{flex:1;min-width:0}
+.cal-searches .field,.cal-searches input{margin-bottom:0}
+
+/* ===================== the schedule list ===================== */
+.panel.sched{margin-top:12px}
+.sched-item{border-bottom:1px solid var(--rule)}
+.sched-item:last-child{border-bottom:0}
+.sched-head{
+  display:flex;gap:11px;align-items:center;width:100%;text-align:left;
+  background:none;border:0;padding:11px 13px;cursor:pointer;color:inherit;
+}
+.sched-head:hover{background:var(--panel2)}
+.sched-total{
+  flex:none;font-family:var(--mono);font-size:11px;color:var(--accent);
+  background:rgba(242,194,48,.12);border-radius:999px;padding:3px 9px;
+}
+.sched-total.free{color:var(--ready);background:rgba(79,183,154,.12)}
+.sched-row{
+  display:flex;gap:9px;align-items:baseline;width:100%;text-align:left;
+  background:none;border:0;border-top:1px solid rgba(53,60,69,.5);
+  padding:7px 13px 7px 46px;cursor:pointer;color:inherit;font-size:13px;
+}
+.sched-row:hover{background:var(--panel2)}
+.sched-row .tl-swatch{position:relative;top:1px;flex:none}
+.sched-when{font-family:var(--mono);font-size:11.5px;color:var(--paper);flex:none}
+.sched-cont{color:var(--dim)}
+.sched-who{flex:1;min-width:0;color:var(--dim);font-size:12.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sched-len{flex:none;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.sched-free{padding:7px 13px 10px 46px;font-size:12.5px;color:var(--ready)}
+.sched-none{padding:9px 13px 11px 46px;font-size:12.5px;color:var(--dim)}
+/* Free stretches read as available at a glance, and are tappable to book. */
+.sched-row.free .sched-when{color:var(--ready)}
+.sched-row.free .sched-who{color:var(--dim);font-style:italic}
+.sched-row.free:hover .sched-who{color:var(--ready);font-style:normal}
+
+/* The list's own date range. */
+.cal-range{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.cal-range input[type="date"]{width:auto;min-width:140px;margin-bottom:0}
+.cal-range .lbl{flex:none}
+.cal-range-arrow{color:var(--dim);font-family:var(--mono)}
+.cal-range-hint{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.sched-more{padding:10px 13px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11px;color:var(--dim)}
+@media (max-width:520px){
+  .sched-row{flex-wrap:wrap;padding-left:13px;gap:4px 9px}
+  .sched-who{flex-basis:100%}
+  .sched-free{padding-left:13px}
+  /* The title and the date range each fit on one line, but not side by side. */
+  .panel.sched .panel-h{flex-direction:column;align-items:flex-start;gap:3px}
+}
+/* ===================== the day agenda (phone default) ===================== */
+/* Same rows as the schedule list above — .sched-row already collapses its
+   46px lead-in to flush at 520px — just grouped by day instead of by item,
+   under the same Overdue/Out on set/Reserved/Returned headings the checkout
+   board uses (.tl-cat), so a phone gets "what's happening Wednesday" instead
+   of a grid shrunk past the point a date is readable in it. */
+.agenda-day{border-bottom:1px solid var(--rule)}
+.agenda-day:last-child{border-bottom:0}
+.agenda-date{display:flex;align-items:baseline;gap:8px;padding:11px 13px;background:var(--case)}
+.agenda-dow{font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
+  font-weight:var(--fw-bold);font-size:12px;color:var(--paper)}
+.agenda-dom{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.agenda-day.today .agenda-dow{color:var(--accent)}
+.agenda-today-badge{
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
+  font-size:9.5px;font-weight:var(--fw-bold);color:var(--on-accent);background:var(--accent);
+  border-radius:999px;padding:2px 8px;margin-left:auto;
+}
+.agenda-none{padding:9px 13px 14px;font-size:12.5px;color:var(--dim)}
+/* .sched-when is built for a short date span (the schedule list's own use)
+   and doesn't shrink — fine for "Aug 4 → Aug 6", not for a project name or a
+   repair note, which is exactly what the agenda puts there instead. Let it
+   ellipsize rather than push the row wider than the phone that's the whole
+   point of this view. */
+.agenda .sched-when{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.cal-found{font-family:var(--mono);font-size:11.5px;color:var(--held);margin-top:6px}
+.cal-found.bad{color:var(--flag)}
+.cal-found strong{color:var(--paper);font-weight:600}
+/* A visual break between the grouping chips and the scope chips that follow. */
+.chip.sep{margin-left:10px;position:relative}
+.chip.sep::before{
+  content:"";position:absolute;left:-6px;top:50%;transform:translateY(-50%);
+  width:1px;height:16px;background:var(--rule);
+}
+.chip.sep~.chip.sep{margin-left:0}
+.chip.sep~.chip.sep::before{display:none}
+.tl-hint{font-size:12px;color:var(--dim);margin:8px 0}
+/* The small print under a control: a note, not a line of the form. Dim and a
+   size down so it reads as explanation, with room beneath it so it doesn't
+   look like a caption for whatever button comes next. */
+.hint{font-size:calc(12px * var(--fs));line-height:1.45;color:var(--dim);margin:0 0 14px}
+
+.tl-status{padding:10px 12px;border-radius:2px;border-left:3px solid var(--rule);margin:10px 0;font-size:13.5px}
+.tl-status.ok{border-left-color:var(--ready);background:rgba(79,183,154,.09)}
+.tl-status.bad{border-left-color:var(--flag);background:rgba(226,86,74,.09)}
+.tl-status .lbl{color:var(--paper);display:block;margin-bottom:3px}
+.tl-clash{font-family:var(--mono);font-size:11.5px;color:var(--dim);line-height:1.5}
+
+.tl.picker{max-height:46vh;overflow-y:auto}
+.tl-legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 14px}
+.tl-legend span{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.tl-swatch{width:14px;height:9px;border-radius:2px;flex:none}
+.tl-swatch.out{background:var(--gaff)}
+.tl-swatch.late{background:var(--flag)}
+.tl-swatch.res{background:var(--held)}
+.tl-swatch.done{background:#4a525c}
+
+@media (max-width:640px){
+  .tl{--cell:31px}
+  .tl-name{width:98px}
+  .tl-bar{font-size:10px}
+}
+
+/* Usage report — an actual spreadsheet grid rather than a stack of rows, so
+   scanning 400+ items for the ones sitting idle is a glance down a column,
+   not a scroll through cards. Cells wrap rather than forcing every column to
+   its widest value's width — a table with seven nowrap columns plus a long
+   item name routinely wanted 900+px, wider than the sheet ever gets, which
+   read as the grid cutting off its last column rather than as the
+   horizontal scroll it actually was. Still scrollable as a fallback on
+   narrow screens, just no longer the normal case. */
+.usage-table-wrap{overflow-x:auto;max-height:62vh;overflow-y:auto}
+.usage-table{width:100%;border-collapse:collapse;font-size:calc(13px * var(--fs));table-layout:fixed}
+.usage-table thead th{
+  position:sticky;top:0;z-index:1;background:var(--panel2);
+  text-align:left;padding:9px 10px;border-bottom:1px solid var(--rule);
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.1em;
+  font-weight:var(--fw-bold);font-size:calc(10.5px * var(--fs));color:var(--dim);
+  cursor:pointer;user-select:none;
+}
+.usage-table thead th:hover{color:var(--paper)}
+.usage-table thead th.num{text-align:right}
+.usage-table thead th .arrow{font-family:var(--mono);margin-left:4px;color:var(--accent)}
+.usage-table tbody td{padding:8px 10px;border-bottom:1px solid var(--rule);overflow-wrap:break-word}
+.usage-table tbody tr.usage-row{cursor:pointer}
+.usage-table tbody tr.usage-row:hover td{background:var(--panel2)}
+.usage-table tbody tr.usage-row.retired{opacity:.55}
+.usage-table td.num{text-align:right;font-family:var(--mono);white-space:nowrap}
+.usage-table .usage-code{display:block;font-family:var(--mono);font-size:11px;color:var(--dim)}
+.usage-table tr.usage-detail-row td{background:var(--case);cursor:default}
+/* table-layout:fixed sizes every row's columns off these — the header is
+   the one row guaranteed to have exactly one cell per column, so widths go
+   here rather than on tbody td (a colspanned detail row is a single cell
+   and would otherwise inherit column 1's width instead of spanning all of
+   them). */
+.usage-table thead th:nth-child(1){width:22%}
+.usage-table thead th:nth-child(2){width:19%}
+.usage-table thead th:nth-child(3){width:8%}
+.usage-table thead th:nth-child(4){width:10%}
+.usage-table thead th:nth-child(5){width:8%}
+.usage-table thead th:nth-child(6){width:13%}
+.usage-table thead th:nth-child(7){width:12%}
+/* Leaves a few % unclaimed rather than summing to exactly 100 — border-collapse
+   and the scroll container's own edges round differently enough across
+   browsers that an exact 100% was clipping the last column by a pixel or two. */
+
+/* ====================== desktop content scale ======================
+   A phone's action cards, panel rows and gear icons are sized for a thumb
+   on a narrow screen; stretched into a wide desktop column at the same
+   size, they just leave a ring of empty panel around small content instead
+   of using the room. Grown here rather than up where the base rules for
+   .act/.row/.panel-b/.gear-i live, since a same-specificity override placed
+   earlier in the file loses the cascade to a later one regardless of which
+   media query actually matches — this block has to come after all of them. */
+@media (min-width:900px){
+  .act-grid{gap:12px}
+  .act{padding:19px 17px;gap:4px}
+  .act .act-i svg{width:27px;height:27px}
+  .act .act-t{font-size:14px}
+  .act .act-d{font-size:12px}
+
+  .panel-h{padding:12px 15px}
+  .panel-b{padding:15px}
+  .row{padding:12px 15px;gap:12px}
+  .row-sub{font-size:calc(12px * var(--fs))}
+  .gear-i{width:36px;height:36px}
+  .gear-i svg{width:21px;height:21px}
+}
+@media (min-width:1500px){
+  .act-grid{gap:14px}
+  .act{padding:22px 20px;gap:5px}
+  .act .act-i svg{width:30px;height:30px}
+  .act .act-t{font-size:15px}
+  .act .act-d{font-size:12.5px}
+
+  .panel-h{padding:13px 16px}
+  .panel-b{padding:16px}
+  .row{padding:13px 16px;gap:13px}
+  .row-sub{font-size:calc(12.5px * var(--fs))}
+  .gear-i{width:38px;height:38px}
+  .gear-i svg{width:22px;height:22px}
+}
+@media (min-width:1800px){
+  .act{padding:26px 24px}
+  .act .act-i svg{width:34px;height:34px}
+  .act .act-t{font-size:16px}
+  .act .act-d{font-size:13px}
+
+  .panel-h{padding:15px 18px}
+  .panel-b{padding:18px}
+  .row{padding:15px 18px}
+  .gear-i{width:42px;height:42px}
+  .gear-i svg{width:24px;height:24px}
+}

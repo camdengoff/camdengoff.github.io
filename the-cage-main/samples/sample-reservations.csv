@@ -1,0 +1,6 @@
+Reservation ID,State,Reserved For,Email,From,To,Item name,Asset Tag,Purpose
+RES-881,Reserved,Jordan,jordan@life.church,2026-08-10,2026-08-13,URSA Cine 12K LF,LC-101,At the Movies
+RES-881,Reserved,Jordan,jordan@life.church,2026-08-10,2026-08-13,RF 24-70 f2.8,LC-111,At the Movies
+RES-882,Reserved,Priya Raman,,2026-08-20,2026-08-22,Aputure 600d Pro,LC-120,Baptism shoot
+RES-883,Cancelled,Jordan,jordan@life.church,2026-08-15,2026-08-16,C400,LC-104,Dead booking
+RES-884,Reserved,Jordan,jordan@life.church,2026-06-01,2026-06-03,C400,LC-104,Already finished
