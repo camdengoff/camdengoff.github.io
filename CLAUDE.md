@@ -56,8 +56,13 @@ Postgres. Nothing is shared until it's pushed.
   still builds and that no personal data reached `public/demo-data.js`.
 - **Databases are separate.** Your checkouts never appear on their machine.
   Only a deployed instance gives you shared data.
-- **Generated files:** `dist/` (gitignored) and `public/demo-data.js`. Rebuild
-  with `npm run build:standalone` and `npm run demo:data`; don't hand-edit.
+- **Generated files:** `dist/` (gitignored), `public/demo-data.js` and
+  `public/real-activity-data.js`. Rebuild with `npm run build:standalone`,
+  `npm run demo:data` and `npm run demo:activity`; don't hand-edit.
+  `scripts/person-tags.json` is *not* generated — it's the persisted
+  id→label map (`Member A`, `Member B`, …) that keeps each real person's
+  anonymous tag stable across re-runs. Commit it; never add a name or email
+  to it by hand.
 
 ### Knowing where things stand
 

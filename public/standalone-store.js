@@ -21,6 +21,7 @@ import {
 } from './policy.js';
 import { DEMO_ITEMS } from './demo-data.js';
 import { simulateActivity } from './demo-activity.js';
+import { REAL_ACTIVITY } from './real-activity-data.js';
 
 const KEY = 'the-cage-demo-v1';
 
@@ -35,6 +36,49 @@ const nowISO = () => new Date().toISOString();
 
 let DB = null;
 
+/**
+ * Real reservations and checkouts, anonymized — see make-real-activity.js.
+ * Every real person is a stable tag ("Member A") instead of a name or email;
+ * gear is matched back to the local item list by code. Maintenance and kits
+ * aren't part of the export yet, so they're empty here.
+ */
+function realActivity(items) {
+  const codeToId = new Map(items.map(it => [it.code, it.id]));
+  const withIds = codes => codes.map(c => codeToId.get(c)).filter(Boolean);
+
+  const people = [
+    { id: 1, email: 'demo@thecage.local', name: 'Demo User', role: 'admin', blocked: false, blocked_reason: null },
+    ...REAL_ACTIVITY.people.map((p, i) => ({
+      id: i + 2, email: '', name: p.tag,
+      role: p.role === 'admin' ? 'admin' : 'member',
+      blocked: false, blocked_reason: null
+    }))
+  ];
+  const idForTag = new Map(REAL_ACTIVITY.people.map((p, i) => [p.tag, i + 2]));
+
+  let coId = 0, resId = 0;
+  const checkouts = REAL_ACTIVITY.checkouts
+    .map(c => ({ ...c, item_ids: withIds(c.item_codes) }))
+    .filter(c => c.item_ids.length)
+    .map(c => ({
+      id: ++coId, holder_id: idForTag.get(c.holder_tag) ?? 1, actor_id: 1,
+      project: c.project || c.shoot || '', out_at: c.out_at, due_on: c.due_on,
+      returned_at: c.returned_at ? `${c.returned_at}T16:00:00Z` : null,
+      note: '', item_ids: c.item_ids
+    }));
+
+  const reservations = REAL_ACTIVITY.reservations
+    .map(r => ({ ...r, item_ids: withIds(r.item_codes) }))
+    .filter(r => r.item_ids.length)
+    .map(r => ({
+      id: ++resId, person_id: idForTag.get(r.person_tag) ?? 1,
+      start_on: r.start_on, end_on: r.end_on, project: r.project || r.shoot || '',
+      fulfilled_at: null, cancelled_at: null, item_ids: r.item_ids
+    }));
+
+  return { people, checkouts, reservations, maintenance: [], kits: [] };
+}
+
 /* ------------------------------------------------------------------- seed */
 
 function seed() {
@@ -48,11 +92,15 @@ function seed() {
     retired: false
   }));
 
-  /* Everything else is invented, and generated rather than hardcoded so it
-     stays plausible whatever the inventory happens to contain. Deterministic
+  /* A real snapshot (make-real-activity.js) takes priority when there is
+     one. Until it's been generated at least once, fall back to invented
+     activity around a made-up crew, generated rather than hardcoded so it
+     stays plausible whatever the inventory happens to contain — deterministic
      for a given day, so both machines show the same cage. */
-  const { people, checkouts, reservations, maintenance, kits } =
-    simulateActivity({ items, today: t });
+  const hasRealActivity = REAL_ACTIVITY.checkouts.length > 0 || REAL_ACTIVITY.reservations.length > 0;
+  const { people, checkouts, reservations, maintenance, kits } = hasRealActivity
+    ? realActivity(items)
+    : simulateActivity({ items, today: t });
 
   return {
     people, items, kits, checkouts, reservations, maintenance,

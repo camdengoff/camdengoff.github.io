@@ -19,6 +19,7 @@
     "reminders": "node --env-file-if-exists=.env scripts/run-reminders.js",
     "build:standalone": "node scripts/build-standalone.js",
     "demo:data": "node --env-file-if-exists=.env scripts/make-demo-data.js",
+    "demo:activity": "node --env-file-if-exists=.env scripts/make-real-activity.js",
     "demo:diff": "node scripts/diff-standalone.js",
     "status": "bash scripts/status.sh",
     "seed:activity": "node --env-file-if-exists=.env scripts/seed-activity.js",

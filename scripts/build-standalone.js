@@ -28,7 +28,7 @@ const read = p => readFileSync(path.join(ROOT, p), 'utf8');
 
 /* Dependency order. Everything before `app` is a leaf or depends only on
    what's already above it. */
-const MODULES = ['policy', 'search', 'icons', 'dateparse', 'kitlink', 'breakdown', 'cart', 'calendar', 'demo-data', 'demo-activity', 'standalone-store'];
+const MODULES = ['policy', 'search', 'icons', 'dateparse', 'kitlink', 'breakdown', 'cart', 'calendar', 'demo-data', 'demo-activity', 'real-activity-data', 'standalone-store'];
 
 /** `public/x.js`, falling back to `src/x.js` — policy.js is shared with the server. */
 function resolve(name) {
@@ -136,10 +136,14 @@ const out = `<!DOCTYPE html>
     - The GEAR IS REAL — the actual Life.Church inventory, exported from
       Cheqroom: names, categories, brands, models and asset codes. It carries
       no people, no serial numbers and no prices.
-    - The ACTIVITY IS INVENTED. The crew, and every checkout, hold and repair
-      ticket, are generated around the day you first open it — deliberately
-      including overdue loans and gear due back today, so those states are
-      visible. Nobody named here has borrowed anything; they don't exist.
+    - REAL RESERVATIONS AND CHECKOUTS, ANONYMIZED. When a snapshot exists
+      (scripts/make-real-activity.js, run against the live database), the
+      checkouts and holds shown are real — but every person appears only as
+      a stable label like "Member A", never a name or email. If no snapshot
+      has been generated yet, activity is invented instead, around a made-up
+      crew (public/demo-activity.js); nobody in that fallback exists.
+    - No repair queue or saved kits in the real-snapshot case — that export
+      only covers reservations and checkouts so far.
     - No email. The reminder batch reports what it would have sent.
 
   Run cageReset() in the console to wipe it back to the starting state.
